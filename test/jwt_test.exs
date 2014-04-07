@@ -1,6 +1,9 @@
 defmodule JWTTest do
   use ExUnit.Case
 
+  @private_key File.read!(Path.join(__DIR__, "id_rsa"))
+  @public_key File.read!(Path.join(__DIR__, "id_rsa.pub"))
+
   alias JWT.Headers
   alias JWT.Base64
 
@@ -31,11 +34,14 @@ defmodule JWTTest do
     assert expected == JWT.encode(@payload)
   end
 
-
   test "decode" do
     key = "shhhhhh!"
     Enum.each JWT.hmac_algorithms ++ ["none"], fn (alg) ->
       assert @payload == JWT.decode(JWT.encode(@payload, key, alg), key)
     end
+  end
+
+  test "rsa encode" do
+    assert @payload == JWT.decode(JWT.encode(@payload, @private_key, "RS256"), @public_key, "RS256")
   end
 end

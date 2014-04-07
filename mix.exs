@@ -10,7 +10,7 @@ defmodule JWT.Mixfile do
 
   # Configuration for the OTP application
   def application do
-    []
+    [:asn1, :crypto, :public_key]
   end
 
   # Returns the list of dependencies in the format:

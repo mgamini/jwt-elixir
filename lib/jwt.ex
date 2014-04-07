@@ -7,7 +7,8 @@ defmodule JWT do
 
   @plaintext_algorithms ["none"]
   @hmac_algorithms      ~W[HS256 HS384 HS512]
-  @supported_algorithms @plaintext_algorithms ++ @hmac_algorithms
+  @rsa_algorithms       ~W[RS256 RS384 RS512]
+  @supported_algorithms @plaintext_algorithms ++ @hmac_algorithms ++ @rsa_algorithms
 
   def encode(payload) do
     encode(payload, nil, "none")
@@ -29,6 +30,16 @@ defmodule JWT do
 
   def sign(algorithm, _, _ ) when algorithm in @plaintext_algorithms, do: ""
 
+  def sign(algorithm, message, key) when algorithm in @rsa_algorithms do
+    key =
+      key
+      |> :public_key.pem_decode
+      |> hd
+      |> :public_key.pem_entry_decode
+
+    Base64.encode(:public_key.sign(message, digest_type(algorithm), key))
+  end
+
   def sign(algorithm, message, key) when algorithm in @hmac_algorithms do
     algorithm
     |> String.replace("HS", "sha")
@@ -37,49 +48,43 @@ defmodule JWT do
     |> Base64.encode
   end
 
-
-  def decode(payload, key, opts \\ []) do
-    { signed?, header, payload, signature } =
-      case String.split(payload, ".") do
-        [ header, payload, "" ] ->
-          { false, header, payload, "" }
+  def decode(message, key, algorithm \\ "HS256", opts \\ []) do
+    { header, payload, signature } =
+      case String.split(message, ".") do
         [ header, payload, signature ] ->
-          { true, header, payload, signature }
+          { header, payload, signature }
         _other ->
           raise DecodeError, message: "invalid payload"
       end
 
+    signing_input = header <> "." <> payload
     header  = decode_part(header, "header")
     payload = decode_part(payload, "payload")
 
-    if signed? do
-      decode_signed(header, payload, signature, key, opts)
-    else
-      decode_unsigned(header, payload)
-    end
-  end
-
-  def decode_unsigned(header, payload) do
-    if header[:alg] in @plaintext_algorithms do
-      payload
-    else
-      raise DecodeError, message: "missing signature"
-    end
-  end
-
-  def decode_signed(header, payload, signature, key, opts) do
     if opts[:verify] do
       algorithm = header[:alg]
-      unless ^signature = sign(algorithm, payload, key) do
-        raise DecodeError, message: "invalid signature"
-      end
+      verify_signature(algorithm, signing_input, key, signature)
+      payload
     else
       payload
     end
+  end
+
+  def verify_signature(alg, _, _, "") do
+    alg in @plaintext_algorithms
+  end
+
+  def verify_signature(alg, signing_input, key, signature) when alg in @rsa_algorithms do
+    :public_key.verify(signing_input, digest_type(alg), signature, key)
+  end
+
+  def verify_signature(alg, signing_input, key, signature) when alg in @hmac_algorithms do
+    signature == sign(alg, signing_input, key)
   end
 
   def supported_algorithms, do: @supported_algorithms
   def hmac_algorithms, do: @hmac_algorithms
+  def rsa_algorithms, do: @rsa_algorithms
 
   defp encode_part(part, name) do
     case JSON.encode(part) do
@@ -93,6 +98,20 @@ defmodule JWT do
       { :ok, json } -> json
       { :error, error } -> raise DecodeError, message: "invalid #{name}: #{error}"
     end
+  end
+
+  digest_algorithms = @rsa_algorithms ++ @hmac_algorithms
+
+  digest_types = Enum.map digest_algorithms, fn algorithm ->
+    digest_type =
+      algorithm
+        |> String.replace(~r/(R|H)S/, "sha")
+        |> binary_to_atom
+    { algorithm, digest_type }
+  end
+
+  Enum.map digest_types, fn { alg, digest_type } ->
+    defp(digest_type(unquote(alg)), do: unquote(digest_type))
   end
 end
 
