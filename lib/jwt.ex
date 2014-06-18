@@ -1,4 +1,6 @@
 defmodule JWT do
+  use Jazz
+
   alias JWT.Headers
   alias JWT.Base64
   alias JWT.EncodeError
@@ -14,7 +16,7 @@ defmodule JWT do
     encode(payload, nil, "none")
   end
 
-  def encode(payload, key, algorithm \\ "HS256", headers \\ []) do
+  def encode(payload, key, algorithm \\ "HS256", headers \\ %{}) do
     unless algorithm in @supported_algorithms do
       raise EncodeError, message: "unsupported algorithm: #{algorithm}"
     end
@@ -94,7 +96,7 @@ defmodule JWT do
   end
 
   defp decode_part(part, name) do
-    case JSON.decode(Base64.decode(part), keys: :atoms!) do
+    case JSON.decode(Base64.decode(part)) do
       { :ok, json } -> json
       { :error, error } -> raise DecodeError, message: "invalid #{name}: #{error}"
     end
@@ -122,8 +124,8 @@ defmodule JWT.Headers do
     Dict.drop(headers, @disallowed)
   end
 
-  def headers(alg, headers \\ []) do
-     Dict.merge([typ: "JWT", alg: alg], clean(headers))
+  def headers(alg, headers \\ %{}) do
+     Dict.merge(%{typ: "JWT", alg: alg}, clean(headers))
   end
 end
 
@@ -144,5 +146,10 @@ defmodule JWT.Base64 do
   end
 end
 
-defexception JWT.EncodeError, [:message]
-defexception JWT.DecodeError, [:message]
+defmodule JWT.EncodeError do
+  defexception [:message]
+end
+
+defmodule JWT.DecodeError do
+  defexception [:message]
+end
