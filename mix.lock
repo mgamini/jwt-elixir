@@ -1,1 +1,1 @@
-%{"jazz": {:git, "git://github.com/meh/jazz.git", "46079b7571d0c70874a0ca002612645d0bafd64c", []}}
+%{"poison": {:package, "1.1.0"}}

@@ -3,8 +3,8 @@ defmodule JWT.Mixfile do
 
   def project do
     [app: :jwt,
-    version: "0.0.1",
-    elixir: "~> 0.14.1",
+    version: "0.0.2",
+    elixir: "~> 1.0.0-rc1",
     deps: deps]
   end
 
@@ -19,6 +19,6 @@ defmodule JWT.Mixfile do
   # To specify particular versions, regardless of the tag, do:
   # { :barbat, "~> 0.1", github: "elixir-lang/barbat" }
   defp deps do
-    [{:jazz, github: "meh/jazz"}]
+    [{:poison, "1.1.0"}]
   end
 end

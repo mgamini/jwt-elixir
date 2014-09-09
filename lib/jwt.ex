@@ -1,6 +1,6 @@
 defmodule JWT do
-  use Jazz
 
+  alias Poison, as: JSON
   alias JWT.Headers
   alias JWT.Base64
   alias JWT.EncodeError
@@ -45,7 +45,7 @@ defmodule JWT do
   def sign(algorithm, message, key) when algorithm in @hmac_algorithms do
     algorithm
     |> String.replace("HS", "sha")
-    |> binary_to_atom
+    |> String.to_existing_atom
     |> :crypto.hmac(key, message)
     |> Base64.encode
   end
@@ -90,7 +90,7 @@ defmodule JWT do
 
   defp encode_part(part, name) do
     case JSON.encode(part) do
-      { :ok, json } -> Base64.encode(json)
+      { :ok, json } -> json |> IO.iodata_to_binary |> Base64.encode
       { :error, _ } -> raise EncodeError, message: "invalid #{name}"
     end
   end
@@ -108,7 +108,7 @@ defmodule JWT do
     digest_type =
       algorithm
         |> String.replace(~r/(R|H)S/, "sha")
-        |> binary_to_atom
+        |> String.to_existing_atom
     { algorithm, digest_type }
   end
 
@@ -139,7 +139,7 @@ defmodule JWT.Base64 do
   end
 
   def pad(string) do
-    case rem(size(string), 4) do
+    case rem(String.length(string), 4) do
       0 -> string
       _ -> pad(string <> "=")
     end
